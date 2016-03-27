@@ -261,26 +261,24 @@ https://github.com/fortunejs/fortune/tree/master/website
     <span class="hljs-comment">// Note that Buffer-typed responses will not be compressed. This option</span>
     <span class="hljs-comment">// should be disabled in case of a reverse proxy which handles</span>
     <span class="hljs-comment">// compression.</span>
-    <span class="hljs-attribute">compression</span>: <span class="hljs-literal">true</span>
+    <span class="hljs-attribute">useCompression</span>: <span class="hljs-literal">true</span>
   }
 }
 </code></pre><p>The <code>http</code> function object contains the following keys:</p><ul><li><code>Serializer</code>: HTTP Serializer class.</li><li><code>JsonSerializer</code>: JSON over HTTP serializer.</li><li><code>FormDataSerializer</code>: Serializer for <code>multipart/formdata</code>.</li><li><code>FormUrlEncodedSerializer</code>: Serializer for <code>application/x-www-form-urlencoded</code>.</li><li><code>statusMap</code>: A <code>WeakMap</code> keyed by response class, valued by status code.</li></ul><hr><h6>HTTP Serializer <span>(<a href="https://github.com/fortunejs/fortune/blob/master/lib/net&#x2F;http_serializer.js"><em>net&#x2F;http_serializer.js</em></a>)</span></h6><h2 id="httpserializer"><span class="class">class</span> HttpSerializer <!--
         --><!--
         --><!--
-      --><a href="#httpserializer" class="anchor">#</a></h2><p><code>HttpSerializer</code> is an abstract base class containing methods to be implemented. Generally, all of its methods should be implemented, unless it&#39;s an input-only serializer.</p><h2 id="httpserializer-constructor"><span class="class">new</span> HttpSerializer <!--
+      --><a href="#httpserializer" class="anchor">#</a></h2><p><code>HttpSerializer</code> is an abstract base class containing methods to be implemented.</p><h2 id="httpserializer-constructor"><span class="class">new</span> HttpSerializer <!--
         --><!--
           -->()<!--
         --><!--
         --><!--
       --><a href="#httpserializer-constructor" class="anchor">#</a></h2><p>The <code>HttpSerializer</code> should not be instantiated directly, since the constructor function accepts dependencies. The keys which are injected are:</p><ul><li><code>methods</code>: same as static property on Fortune class.</li><li><code>errors</code>: same as static property on Fortune class.</li><li><code>keys</code>: an object which enumerates reserved constants for record type definitions.</li><li><code>recordTypes</code>: an object which enumerates record types and their definitions.</li><li><code>castValue</code>: a function with the signature (<code>value</code>, <code>type</code>, <code>options</code>), useful for casting arbitrary values to a particular type.</li><li><code>options</code>: the options passed to the serializer.</li><li><code>adapter</code>: a reference to the adapter instance.</li><li><code>message</code>: a function with the signature (<code>id</code>, <code>language</code>, <code>data</code>).</li><li><code>Promise</code>: the Promise implementation.</li></ul><p>These keys are accessible on the instance (<code>this</code>).</p><h2 id="httpserializer-processrequest">HttpSerializer.<span class="key">processRequest</span> <!--
         --><!--
-          -->(<span class="parameter" title="Object">contextRequest</span>, <span class="parameter" title="Object">request</span>, <span class="parameter" title="Object">response</span>)<!--
-        --><!--
         --><!--
         --><span class="arrow">⇒</span><!--
         --><span class="return">Promise | Object</span><!--
         --><!--
-      --><a href="#httpserializer-processrequest" class="anchor">#</a></h2><p>This gets run first. The purpose is typically to read and mutate the request before anything else happens. For example, it can handle URI routing and query string parsing. The arguments that it accepts beyond the required <code>contextRequest</code> are the <code>request</code> and <code>response</code> arguments from the Node.js HTTP listener.</p><p>It should return either the context request or a promise that resolves to the context request. <em>The expectation is that the request is mutated except for the payload</em>, which should be handled separately.</p><h2 id="httpserializer-processresponse">HttpSerializer.<span class="key">processResponse</span> <!--
+      --><a href="#httpserializer-processrequest" class="anchor">#</a></h2><p>This method is run first, and it is optional to implement. The default implementation is typically used so that it may interoperate with other serializers. The purpose is typically to read and mutate the request before anything else happens. For example, it can handle URI routing and query string parsing. The arguments that it accepts beyond the required <code>contextRequest</code> are the <code>request</code> and <code>response</code> arguments from the Node.js HTTP listener.</p><p>It should return either the context request or a promise that resolves to the context request. <em>The expectation is that the request is mutated except for the payload</em>, which should be handled separately.</p><h2 id="httpserializer-processresponse">HttpSerializer.<span class="key">processResponse</span> <!--
         --><!--
           -->(<span class="parameter" title="Object">contextResponse</span>, <span class="parameter" title="Object">request</span>, <span class="parameter" title="Object">response</span>)<!--
         --><!--
@@ -290,7 +288,7 @@ https://github.com/fortunejs/fortune/tree/master/website
         --><!--
       --><a href="#httpserializer-processresponse" class="anchor">#</a></h2><p>This gets run last. The purpose is typically to read and mutate the response at the very end, for example, stringifying an object to be sent over the network. The arguments that it accepts beyond the required <code>contextResponse</code> are the <code>request</code> and <code>response</code> arguments from the Node.js HTTP listener.</p><p>It should return either the context response or a promise that resolves to the context response. <em>The expectation is that there is a key on the context response, <code>payload</code>, which is either a string or a buffer</em>, or else Node.js doesn&#39;t know how to respond.</p><h2 id="httpserializer-parsepayload">HttpSerializer.<span class="key">parsePayload</span> <!--
         --><!--
-          -->(<span class="parameter" title="Object">contextRequest</span>)<!--
+          -->(<span class="parameter" title="Object">contextRequest</span>, <span class="parameter" title="Object">request</span>, <span class="parameter" title="Object">response</span>)<!--
         --><!--
         --><!--
         --><span class="arrow">⇒</span><!--
