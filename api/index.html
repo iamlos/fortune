@@ -261,7 +261,12 @@ https://github.com/fortunejs/fortune/tree/master/website
     <span class="hljs-comment">// Note that Buffer-typed responses will not be compressed. This option</span>
     <span class="hljs-comment">// should be disabled in case of a reverse proxy which handles</span>
     <span class="hljs-comment">// compression.</span>
-    <span class="hljs-attribute">useCompression</span>: <span class="hljs-literal">true</span>
+    <span class="hljs-attribute">useCompression</span>: <span class="hljs-literal">true</span>,
+
+    <span class="hljs-comment">// Use built-in ETag implementation, which uses CRC32 under the hood.</span>
+    <span class="hljs-comment">// This option should be disabled in case of a reverse proxy which</span>
+    <span class="hljs-comment">// handles compression.</span>
+    <span class="hljs-attribute">useETag</span>: <span class="hljs-literal">true</span>
   }
 }
 </code></pre><p>The <code>http</code> function object contains the following keys:</p><ul><li><code>Serializer</code>: HTTP Serializer class.</li><li><code>JsonSerializer</code>: JSON over HTTP serializer.</li><li><code>HtmlSerializer</code>: HTML serializer.</li><li><code>FormDataSerializer</code>: Serializer for <code>multipart/formdata</code>.</li><li><code>FormUrlEncodedSerializer</code>: Serializer for <code>application/x-www-form-urlencoded</code>.</li><li><code>statusMap</code>: A <code>WeakMap</code> keyed by response class, valued by status code.</li></ul><hr><h6>HTTP Serializer <span>(<a href="https://github.com/fortunejs/fortune/blob/master/lib/net&#x2F;http_serializer.js"><em>net&#x2F;http_serializer.js</em></a>)</span></h6><h2 id="httpserializer"><span class="class">class</span> HttpSerializer <!--
