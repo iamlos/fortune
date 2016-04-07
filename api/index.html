@@ -19,19 +19,19 @@ https://github.com/fortunejs/fortune/tree/master/website
         --><!--
       --><a href="#fortune-constructor" class="anchor">#</a></h2><p>Create a new instance, the only required input is record type definitions. The first argument must be an object keyed by name, valued by definition objects. Here are some example field definitions:</p><pre><code class="lang-js">{
   <span class="hljs-comment">// A singular value.</span>
-  <span class="hljs-attribute">name</span>: { <span class="hljs-attribute">type</span>: <span class="hljs-built_in">String</span> },
+  <span class="hljs-attribute">name</span>: { <span class="hljs-attribute">type</span>: String },
 
   <span class="hljs-comment">// An array containing values of a single type.</span>
-  <span class="hljs-attribute">luckyNumbers</span>: { <span class="hljs-attribute">type</span>: <span class="hljs-built_in">Number</span>, <span class="hljs-attribute">isArray</span>: <span class="hljs-literal">true</span> },
+  <span class="hljs-attribute">luckyNumbers</span>: { <span class="hljs-attribute">type</span>: Number, <span class="hljs-attribute">isArray</span>: true },
 
   <span class="hljs-comment">// Creates a to-many link to `animal` record type. If the field `owner`</span>
   <span class="hljs-comment">// on the `animal` record type is not an array, this is a many-to-one</span>
   <span class="hljs-comment">// relationship, otherwise it is many-to-many.</span>
-  <span class="hljs-attribute">pets</span>: { <span class="hljs-attribute">link</span>: <span class="hljs-string">'animal'</span>, <span class="hljs-attribute">isArray</span>: <span class="hljs-literal">true</span>, <span class="hljs-attribute">inverse</span>: <span class="hljs-string">'owner'</span> },
+  <span class="hljs-attribute">pets</span>: { <span class="hljs-attribute">link</span>: <span class="hljs-string">'animal'</span>, <span class="hljs-attribute">isArray</span>: true, <span class="hljs-attribute">inverse</span>: <span class="hljs-string">'owner'</span> },
 
   <span class="hljs-comment">// The `min` and `max` keys are open to interpretation by the specific</span>
   <span class="hljs-comment">// adapter, which may introspect the field definition.</span>
-  <span class="hljs-attribute">thing</span>: { <span class="hljs-attribute">type</span>: <span class="hljs-built_in">Number</span>, <span class="hljs-attribute">min</span>: <span class="hljs-number">0</span>, <span class="hljs-attribute">max</span>: <span class="hljs-number">100</span> },
+  <span class="hljs-attribute">thing</span>: { <span class="hljs-attribute">type</span>: Number, <span class="hljs-attribute">min</span>: <span class="hljs-number">0</span>, <span class="hljs-attribute">max</span>: <span class="hljs-number">100</span> },
 
   <span class="hljs-comment">// Nested field definitions are invalid. Use `Object` type instead.</span>
   <span class="hljs-attribute">nested</span>: { <span class="hljs-attribute">thing</span>: { ... } } <span class="hljs-comment">// Will throw an error.</span>
@@ -45,22 +45,22 @@ https://github.com/fortunejs/fortune/tree/master/website
   { <span class="hljs-attr">...</span> }
 <span class="hljs-meta">]</span>
 </code></pre></li><li><p><code>transforms</code>: keyed by type name, valued by an array containing an <code>input</code> and/or <code>output</code> function at indices <code>0</code> and <code>1</code> respectively.</p><p>A transform function takes at least two arguments, the internal <code>context</code> object and a single <code>record</code>. A special case is the <code>update</code> argument for the <code>update</code> method.</p><p>There are two kinds of transforms, before a record is written to transform input, and after it is read to transform output, both are optional. If an error occurs within an transform function, it will be forwarded to the response. Use typed errors to provide the appropriate feedback. It is varant to note that <code>output</code> transforms are run every time a record is shown in a response, so it should be idempotent.</p><p>For a create request, the input transform must return the second argument <code>record</code> either synchronously, or asynchronously as a Promise. The return value of a delete request is inconsequential, but it may return a value or a Promise. There is a special case of the <code>update</code> method accepting a <code>update</code> object as a third parameter, which must be returned synchronously or as a Promise.</p><p>An example transform to apply a timestamp on a record before creation, and displaying the timestamp in the server&#39;s locale:</p><pre><code class="lang-js">[
-  (context, record, update) =&gt; {
-    <span class="hljs-keyword">const</span> <span class="hljs-keyword">method</span> = context.request.<span class="hljs-keyword">method</span>
+  (<span class="hljs-built_in">context</span>, record, update) =&gt; {
+    const <span class="hljs-built_in">method</span> = <span class="hljs-built_in">context</span>.request.<span class="hljs-built_in">method</span>
 
-    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">method</span> === 'create') {
-      record.timestamp = new <span class="hljs-type">Date</span>()
-      <span class="hljs-keyword">return</span> record
+    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">method</span> === 'create') {
+      record.timestamp = <span class="hljs-built_in">new</span> Date()
+      <span class="hljs-built_in">return</span> record
     }
 
-    <span class="hljs-keyword">if</span> (update) <span class="hljs-keyword">return</span> update
+    <span class="hljs-keyword">if</span> (update) <span class="hljs-built_in">return</span> update
 
-    // <span class="hljs-type">If</span> we get here, <span class="hljs-keyword">return</span> value <span class="hljs-keyword">of</span> the delete <span class="hljs-keyword">method</span> doesn't matter.
-    <span class="hljs-keyword">return</span> null
+    // If we <span class="hljs-built_in">get</span> here, <span class="hljs-built_in">return</span> value of the <span class="hljs-built_in">delete</span> <span class="hljs-built_in">method</span> doesn't matter.
+    <span class="hljs-built_in">return</span> null
   },
-  (context, record) =&gt; {
+  (<span class="hljs-built_in">context</span>, record) =&gt; {
     record.timestamp = record.timestamp.toLocaleString()
-    <span class="hljs-keyword">return</span> record
+    <span class="hljs-built_in">return</span> record
   }
 ]
 </code></pre><p>Requests to update a record will <strong>NOT</strong> have the updates already applied to the record.</p><p>Another feature of the input transform is that it will have access to a temporary field <code>context.transaction</code>. This is useful for ensuring that bulk write operations are all or nothing. Each request is treated as a single transaction.</p></li><li><p><code>settings</code>: internal settings to configure.</p><pre><code class="lang-js">{
@@ -133,42 +133,42 @@ https://github.com/fortunejs/fortune/tree/master/website
         --><span class="return">Promise</span><!--
         --><!--
       --><a href="#adapter-find" class="anchor">#</a></h2><p>Find records by IDs and options. If IDs is undefined, it should try to return all records. However, if IDs is an empty array, it should be a no-op. The format of the options may be as follows:</p><pre><code class="lang-js">{
-  <span class="hljs-selector-tag">sort</span>: { ... },
-  <span class="hljs-selector-tag">fields</span>: { ... },
-  <span class="hljs-selector-tag">exists</span>: { ... },
-  <span class="hljs-selector-tag">match</span>: { ... },
-  <span class="hljs-selector-tag">range</span>: { ... },
+<span class="hljs-symbol">  sort:</span> { ... },
+<span class="hljs-symbol">  fields:</span> { ... },
+<span class="hljs-symbol">  exists:</span> { ... },
+<span class="hljs-symbol">  match:</span> { ... },
+<span class="hljs-symbol">  range:</span> { ... },
 
   <span class="hljs-comment">// Limit results to this number. Zero means no limit.</span>
-  <span class="hljs-attribute">limit</span>: <span class="hljs-number">0</span>,
+<span class="hljs-symbol">  limit:</span> <span class="hljs-number">0</span>,
 
   <span class="hljs-comment">// Offset results by this much from the beginning.</span>
-  <span class="hljs-attribute">offset</span>: <span class="hljs-number">0</span>,
+<span class="hljs-symbol">  offset:</span> <span class="hljs-number">0</span>,
 
   <span class="hljs-comment">// Reserved field for custom querying.</span>
-  <span class="hljs-attribute">query</span>: null
+<span class="hljs-symbol">  query:</span> null
 }
 </code></pre><p>For the fields <code>exists</code>, <code>match</code>, and <code>range</code>, the logical operator should be &quot;and&quot;. The <code>query</code> field may be used on a per adapter basis to provide custom querying functionality.</p><p>The syntax of the <code>sort</code> object is as follows:</p><pre><code class="lang-js">{
-  <span class="hljs-attribute">age</span>: <span class="hljs-literal">false</span>, <span class="hljs-comment">// descending</span>
-  <span class="hljs-attribute">name</span>: <span class="hljs-literal">true</span> <span class="hljs-comment">// ascending</span>
+  age: <span class="hljs-literal">false</span>, <span class="hljs-comment">// descending</span>
+  <span class="hljs-built_in">name</span>: <span class="hljs-literal">true</span> <span class="hljs-comment">// ascending</span>
 }
 </code></pre><p>Fields can be specified to be either included or omitted, but not both. Use the values <code>true</code> to include, or <code>false</code> to omit. The syntax of the <code>fields</code> object is as follows:</p><pre><code class="lang-js">{
-  <span class="hljs-attribute">name</span>: <span class="hljs-literal">true</span>, <span class="hljs-comment">// include this field</span>
-  <span class="hljs-attribute">age</span>: <span class="hljs-literal">true</span> <span class="hljs-comment">// also include this field</span>
+  <span class="hljs-built_in">name</span>: <span class="hljs-literal">true</span>, <span class="hljs-comment">// include this field</span>
+  age: <span class="hljs-literal">true</span> <span class="hljs-comment">// also include this field</span>
 }
 </code></pre><p>The <code>exists</code> object specifies if a field should exist or not (<code>true</code> or <code>false</code>). For array fields, it should check for non-zero length.</p><pre><code class="lang-js">{
   name: true, //<span class="hljs-built_in"> check </span>if this fields exists
   age: false //<span class="hljs-built_in"> check </span>if this field doesn't exist
 }
 </code></pre><p>The syntax of the <code>match</code> object is straightforward:</p><pre><code class="lang-js">{
-  <span class="hljs-attribute">name</span>: <span class="hljs-string">'value'</span>, <span class="hljs-comment">// exact match or containment if array</span>
-  <span class="hljs-attribute">friends</span>: [ <span class="hljs-string">'joe'</span>, <span class="hljs-string">'bob'</span> ] <span class="hljs-comment">// match any one of these values</span>
+  name: <span class="hljs-string">'value'</span>, // exact <span class="hljs-keyword">match</span> <span class="hljs-built_in">or</span> containment <span class="hljs-keyword">if</span> array
+  friend<span class="hljs-variable">s:</span> [ <span class="hljs-string">'joe'</span>, <span class="hljs-string">'bob'</span> ] // <span class="hljs-keyword">match</span> any one of these <span class="hljs-built_in">values</span>
 }
 </code></pre><p>The <code>range</code> object is used to filter between lower and upper bounds. It should take precedence over <code>match</code>. For array fields, it should apply on the length of the array. For singular link fields, it should not apply.</p><pre><code class="lang-js">{
-  <span class="hljs-attribute">range</span>: { <span class="hljs-comment">// Ranges should be inclusive.</span>
-    <span class="hljs-attribute">age</span>: [ <span class="hljs-number">18</span>, <span class="hljs-literal">null</span> ], <span class="hljs-comment">// From 18 and above.</span>
-    <span class="hljs-attribute">name</span>: [ <span class="hljs-string">'a'</span>, <span class="hljs-string">'d'</span> ], <span class="hljs-comment">// Starting with letters A through C.</span>
-    <span class="hljs-attribute">createdAt</span>: [ <span class="hljs-literal">null</span>, <span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>(<span class="hljs-number">2016</span>, <span class="hljs-number">0</span>) ] <span class="hljs-comment">// Dates until 2016.</span>
+<span class="hljs-symbol">  range:</span> { <span class="hljs-comment">// Ranges should be inclusive.</span>
+<span class="hljs-symbol">    age:</span> [ <span class="hljs-number">18</span>, null ], <span class="hljs-comment">// From 18 and above.</span>
+<span class="hljs-symbol">    name:</span> [ <span class="hljs-string">'a'</span>, <span class="hljs-string">'d'</span> ], <span class="hljs-comment">// Starting with letters A through C.</span>
+<span class="hljs-symbol">    createdAt:</span> [ null, new Date(<span class="hljs-number">2016</span>, <span class="hljs-number">0</span>) ] <span class="hljs-comment">// Dates until 2016.</span>
   }
 }
 </code></pre><p>The return value of the promise should be an array, and the array <strong>MUST</strong> have a <code>count</code> property that is the total number of records without limit and offset.</p><h2 id="adapter-update">Adapter.<span class="key">update</span> <!--
@@ -181,9 +181,9 @@ https://github.com/fortunejs/fortune/tree/master/website
         --><!--
       --><a href="#adapter-update" class="anchor">#</a></h2><p>Update records by IDs. Success should resolve to the number of records updated. The <code>updates</code> parameter should be an array of objects that correspond to updates by IDs. Each update object must be as follows:</p><pre><code class="lang-js">{
   <span class="hljs-comment">// ID to update. Required.</span>
-  <span class="hljs-attribute">id:</span><span class="hljs-emphasis"> 1,
+  <span class="hljs-attribute">id</span>: <span class="hljs-number">1</span>,
 
-  // Replace</span> a value <span class="hljs-keyword">of</span> a field. Use a <span class="hljs-string">`null`</span> value to unset a field.
+  <span class="hljs-comment">// Replace a value of a field. Use a `null` value to unset a field.</span>
   <span class="hljs-attribute">replace</span>: { <span class="hljs-attribute">name</span>: <span class="hljs-string">'Bob'</span> },
 
   <span class="hljs-comment">// Append values to an array field. If the value is an array, all of</span>
@@ -197,7 +197,7 @@ https://github.com/fortunejs/fortune/tree/master/website
   <span class="hljs-comment">// The `operate` field is specific to the adapter. This should take</span>
   <span class="hljs-comment">// precedence over all of the above. Warning: using this may bypass</span>
   <span class="hljs-comment">// field definitions and referential integrity. Use at your own risk.</span>
-  <span class="hljs-attribute">operate</span>: <span class="hljs-literal">null</span>
+  <span class="hljs-attribute">operate</span>: null
 }
 </code></pre><p>Things to consider:</p><ul><li><code>push</code> and <code>pull</code> can not be applied to non-arrays.</li><li>The same value in the same field should not exist in both <code>push</code> and <code>pull</code>.</li></ul><h2 id="adapter-delete">Adapter.<span class="key">delete</span> <!--
         --><!--
@@ -243,7 +243,7 @@ https://github.com/fortunejs/fortune/tree/master/website
   <span class="hljs-comment">// An array of HTTP serializers, ordered by priority. Defaults to ad hoc</span>
   <span class="hljs-comment">// JSON and form serializers if none are specified. If a serializer value</span>
   <span class="hljs-comment">// is not an array, its settings will be considered omitted.</span>
-  <span class="hljs-attribute">serializers</span>: [
+<span class="hljs-symbol">  serializers:</span> [
     [
       <span class="hljs-comment">// A function that subclasses the HTTP Serializer.</span>
       HttpSerializerSubclass,
@@ -252,21 +252,21 @@ https://github.com/fortunejs/fortune/tree/master/website
       { ... }
     ]
   ],
-  <span class="hljs-attribute">settings</span>: {
+<span class="hljs-symbol">  settings:</span> {
     <span class="hljs-comment">// By default, the listener will end the response, set this to `false`</span>
     <span class="hljs-comment">// if the response will be ended later.</span>
-    <span class="hljs-attribute">endResponse</span>: <span class="hljs-literal">true</span>,
+<span class="hljs-symbol">    endResponse:</span> true,
 
     <span class="hljs-comment">// Use compression if the request `Accept-Encoding` header allows it.</span>
     <span class="hljs-comment">// Note that Buffer-typed responses will not be compressed. This option</span>
     <span class="hljs-comment">// should be disabled in case of a reverse proxy which handles</span>
     <span class="hljs-comment">// compression.</span>
-    <span class="hljs-attribute">useCompression</span>: <span class="hljs-literal">true</span>,
+<span class="hljs-symbol">    useCompression:</span> true,
 
     <span class="hljs-comment">// Use built-in ETag implementation, which uses CRC32 under the hood.</span>
     <span class="hljs-comment">// This option should be disabled in case of a reverse proxy which</span>
     <span class="hljs-comment">// handles compression.</span>
-    <span class="hljs-attribute">useETag</span>: <span class="hljs-literal">true</span>
+<span class="hljs-symbol">    useETag:</span> true
   }
 }
 </code></pre><p>The <code>http</code> function object contains the following keys:</p><ul><li><code>Serializer</code>: HTTP Serializer class.</li><li><code>JsonSerializer</code>: JSON over HTTP serializer.</li><li><code>HtmlSerializer</code>: HTML serializer.</li><li><code>FormDataSerializer</code>: Serializer for <code>multipart/formdata</code>.</li><li><code>FormUrlEncodedSerializer</code>: Serializer for <code>application/x-www-form-urlencoded</code>.</li><li><code>statusMap</code>: A <code>WeakMap</code> keyed by response class, valued by status code.</li></ul><hr><h6>HTTP Serializer <span>(<a href="https://github.com/fortunejs/fortune/blob/master/lib/net&#x2F;http_serializer.js"><em>net&#x2F;http_serializer.js</em></a>)</span></h6><h2 id="httpserializer"><span class="class">class</span> HttpSerializer <!--
@@ -310,9 +310,9 @@ https://github.com/fortunejs/fortune/tree/master/website
         --><span class="arrow">⇒</span><!--
         --><span class="return">Server</span><!--
         --><!--
-      --><a href="#fortune.net-ws" class="anchor">#</a></h2><p>This function returns a WebSocket server that implements the Fortune wire protocol. The options are the same as those documented in the <a href="https://github.com/websockets/ws/blob/master/doc/ws.md"><code>ws</code> documentation</a>. There is an additional option which this server uses, <code>useIPC</code>, which may be set to <code>true</code> to enable the IPC functionality.</p><p>The wire protocol is based on <a href="http://msgpack.org">MessagePack</a>. The client may send two kinds of requests: setting state within the connection, and making a request to the Fortune instance. Each client request <strong>MUST</strong> include an ID for correlating a response to a request. For example, requesting a state change would look like:</p><pre><code class="lang-js">{ <span class="hljs-attribute">id:</span><span class="hljs-emphasis"> 'xxx</span><span class="hljs-string">', state: { ... } } // MessagePack encoded.</span>
-</code></pre><p>The format is identical in the response for a state change.</p><p>Making a request to the instance is similar, and has the same parameters as the <a href="#fortune-request"><code>request</code> method</a>:</p><pre><code class="lang-js">{ <span class="hljs-attribute">id:</span><span class="hljs-emphasis"> 'xxx</span><span class="hljs-string">', request: { ... } } // MessagePack encoded.</span>
-</code></pre><p>When a request succeeds, the client receives the response like so:</p><pre><code class="lang-js">{ <span class="hljs-attribute">id:</span><span class="hljs-emphasis"> 'xxx</span><span class="hljs-string">', response: { ... } } // MessagePack encoded.</span>
+      --><a href="#fortune.net-ws" class="anchor">#</a></h2><p>This function returns a WebSocket server that implements the Fortune wire protocol. The options are the same as those documented in the <a href="https://github.com/websockets/ws/blob/master/doc/ws.md"><code>ws</code> documentation</a>. There is an additional option which this server uses, <code>useIPC</code>, which may be set to <code>true</code> to enable the IPC functionality.</p><p>The wire protocol is based on <a href="http://msgpack.org">MessagePack</a>. The client may send two kinds of requests: setting state within the connection, and making a request to the Fortune instance. Each client request <strong>MUST</strong> include an ID for correlating a response to a request. For example, requesting a state change would look like:</p><pre><code class="lang-js">{ id: 'xxx', <span class="hljs-keyword">state</span>: { ... } } // MessagePack encoded.
+</code></pre><p>The format is identical in the response for a state change.</p><p>Making a request to the instance is similar, and has the same parameters as the <a href="#fortune-request"><code>request</code> method</a>:</p><pre><code class="lang-js">{ <span class="hljs-string">id:</span> <span class="hljs-string">'xxx'</span>, <span class="hljs-string">request:</span> { ... } } <span class="hljs-comment">// MessagePack encoded.</span>
+</code></pre><p>When a request succeeds, the client receives the response like so:</p><pre><code class="lang-js">{ <span class="hljs-string">id:</span> <span class="hljs-string">'xxx'</span>, <span class="hljs-string">response:</span> { ... } } <span class="hljs-comment">// MessagePack encoded.</span>
 </code></pre><p>The <code>change</code> callback function gets invoked either when a change occurs within the Fortune instance, or when the client requests a state change. If it&#39;s an internal change, it is invoked with the current state and changes, otherwise if it&#39;s a connection state change, it does not have a second argument. For an internal change, the return value of this function determines either what gets sent to the client, which may be falsy to send nothing. For connection state change, the return value should be what gets assigned over the current state. It may also return a Promise. For example:</p><pre><code class="lang-js">function change (<span class="hljs-keyword">state</span>, changes) {
   return new Promise((resolve, reject) =&gt; {
     if (!changes) {
@@ -324,8 +324,8 @@ https://github.com/fortunejs/fortune/tree/master/website
     return resolve(<span class="hljs-keyword">state</span>.isListening ? changes : null)
   })
 }
-</code></pre><p>The changes are relayed to the client like so:</p><pre><code class="lang-js">{ <span class="hljs-selector-tag">changes</span>: { ... } } <span class="hljs-comment">// MessagePack encoded.</span>
-</code></pre><p>If any request fails, the client receives a message like so:</p><pre><code class="lang-js">{ <span class="hljs-attribute">id:</span><span class="hljs-emphasis"> 'xxx</span><span class="hljs-string">', error: '</span>...<span class="hljs-string">' } // MessagePack encoded.</span>
+</code></pre><p>The changes are relayed to the client like so:</p><pre><code class="lang-js">{ <span class="hljs-string">changes:</span> { ... } } <span class="hljs-comment">// MessagePack encoded.</span>
+</code></pre><p>If any request fails, the client receives a message like so:</p><pre><code class="lang-js">{ <span class="hljs-string">id:</span> <span class="hljs-string">'xxx'</span>, <span class="hljs-string">error:</span> <span class="hljs-string">'...'</span> } <span class="hljs-comment">// MessagePack encoded.</span>
 </code></pre><p>The returned <code>Server</code> object has an additional key <code>stateMap</code>, which is a <code>WeakMap</code> keyed by WebSocket connection, and valued by connection state. This may be useful for external connection handlers.</p><p><em>Note that by default, this is a single-threaded implementation</em>. In order to scale past a single instance, inter-process communication (IPC) is necessary. When a server is started within a worker process using the <code>cluster</code> module, it emits and responds to change events. How the messaging is orchestrated is not handled by Fortune.js itself, instead it is left to the user.</p><h2 id="fortune.net-request">Fortune.net.<span class="key">request</span> <!--
         --><!--
           -->(<span class="parameter" title="WebSocket">client</span>, <span class="parameter" title="Object">data</span>)<!--
