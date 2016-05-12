@@ -328,7 +328,7 @@ https://github.com/fortunejs/fortune/tree/master/website
 </code></pre><p>If any request fails, the client receives a message like so:</p><pre><code class="lang-js">{ <span class="hljs-string">id:</span> <span class="hljs-string">'xxx'</span>, <span class="hljs-string">error:</span> <span class="hljs-string">'...'</span> } <span class="hljs-comment">// MessagePack encoded.</span>
 </code></pre><p>The returned <code>Server</code> object has an additional key <code>stateMap</code>, which is a <code>WeakMap</code> keyed by WebSocket connection, and valued by connection state. This may be useful for external connection handlers.</p><p><em>Note that by default, this is a single-threaded implementation</em>. In order to scale past a single instance, inter-process communication (IPC) is necessary. When a server is started within a worker process using the <code>cluster</code> module, it emits and responds to change events. How the messaging is orchestrated is not handled by Fortune.js itself, instead it is left to the user.</p><h2 id="fortune.net-request">Fortune.net.<span class="key">request</span> <!--
         --><!--
-          -->(<span class="parameter" title="WebSocket">client</span>, <span class="parameter" title="Object">data</span>)<!--
+          -->(<span class="parameter" title="WebSocket">client</span>, <span class="parameter" title="Object">[options]</span>, <span class="parameter" title="Object">[state]</span>)<!--
         --><!--
         --><!--
         --><span class="arrow">⇒</span><!--
@@ -339,7 +339,7 @@ https://github.com/fortunejs/fortune/tree/master/website
 client.addEventListener(<span class="hljs-string">'open'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params"></span>) </span>{
   fortune.net.request(client, { ... })
 })
-</code></pre><p>The <code>data</code> object may contain the keys <code>id</code> (if it is not provided, it will be generated), and either <code>state</code> or <code>request</code>.</p><h2 id="fortune.net-sync">Fortune.net.<span class="key">sync</span> <!--
+</code></pre><p>The <code>options</code> object is exactly the same as that defined by <code>fortune.request</code>, and the <code>state</code> object is an arbitrary object to send to request a state change. Either <code>options</code> or <code>state</code> must be passed.</p><h2 id="fortune.net-sync">Fortune.net.<span class="key">sync</span> <!--
         --><!--
           -->(<span class="parameter" title="WebSocket">client</span>, <span class="parameter" title="Fortune">instance</span>, <span class="parameter" title="Function">[merge]</span>)<!--
         --><!--
