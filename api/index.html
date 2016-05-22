@@ -45,22 +45,22 @@ https://github.com/fortunejs/fortune/tree/master/website
   { <span class="hljs-attr">...</span> }
 <span class="hljs-meta">]</span>
 </code></pre></li><li><p><code>transforms</code>: keyed by type name, valued by an array containing an <code>input</code> and/or <code>output</code> function at indices <code>0</code> and <code>1</code> respectively.</p><p>A transform function takes at least two arguments, the internal <code>context</code> object and a single <code>record</code>. A special case is the <code>update</code> argument for the <code>update</code> method.</p><p>There are two kinds of transforms, before a record is written to transform input, and after it is read to transform output, both are optional. If an error occurs within an transform function, it will be forwarded to the response. Use typed errors to provide the appropriate feedback. It is varant to note that <code>output</code> transforms are run every time a record is shown in a response, so it should be idempotent.</p><p>For a create request, the input transform must return the second argument <code>record</code> either synchronously, or asynchronously as a Promise. The return value of a delete request is inconsequential, but it may return a value or a Promise. There is a special case of the <code>update</code> method accepting a <code>update</code> object as a third parameter, which must be returned synchronously or as a Promise.</p><p>An example transform to apply a timestamp on a record before creation, and displaying the timestamp in the server&#39;s locale:</p><pre><code class="lang-js">[
-  (<span class="hljs-built_in">context</span>, record, update) =&gt; {
-    const <span class="hljs-built_in">method</span> = <span class="hljs-built_in">context</span>.request.<span class="hljs-built_in">method</span>
+  (context, <span class="hljs-keyword">record</span>, update) =&gt; {
+    const method = context.request.method
 
-    <span class="hljs-keyword">if</span> (<span class="hljs-built_in">method</span> === 'create') {
-      record.timestamp = <span class="hljs-built_in">new</span> Date()
-      <span class="hljs-built_in">return</span> record
+    <span class="hljs-keyword">if</span> (method === <span class="hljs-symbol">'create</span>') {
+      <span class="hljs-keyword">record</span>.timestamp = <span class="hljs-keyword">new</span> Date()
+      <span class="hljs-keyword">return</span> <span class="hljs-keyword">record</span>
     }
 
-    <span class="hljs-keyword">if</span> (update) <span class="hljs-built_in">return</span> update
+    <span class="hljs-keyword">if</span> (update) <span class="hljs-keyword">return</span> update
 
-    // If we <span class="hljs-built_in">get</span> here, <span class="hljs-built_in">return</span> value of the <span class="hljs-built_in">delete</span> <span class="hljs-built_in">method</span> doesn't matter.
-    <span class="hljs-built_in">return</span> null
+    // <span class="hljs-keyword">If</span> we get here, <span class="hljs-keyword">return</span> value <span class="hljs-keyword">of</span> the delete method doesn<span class="hljs-symbol">'t</span> matter.
+    <span class="hljs-keyword">return</span> null
   },
-  (<span class="hljs-built_in">context</span>, record) =&gt; {
-    record.timestamp = record.timestamp.toLocaleString()
-    <span class="hljs-built_in">return</span> record
+  (context, <span class="hljs-keyword">record</span>) =&gt; {
+    <span class="hljs-keyword">record</span>.timestamp = <span class="hljs-keyword">record</span>.timestamp.toLocaleString()
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">record</span>
   }
 ]
 </code></pre><p>Requests to update a record will <strong>NOT</strong> have the updates already applied to the record.</p><p>Another feature of the input transform is that it will have access to a temporary field <code>context.transaction</code>. This is useful for ensuring that bulk write operations are all or nothing. Each request is treated as a single transaction.</p></li><li><p><code>settings</code>: internal settings to configure.</p><pre><code class="lang-js">{
