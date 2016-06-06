@@ -279,6 +279,8 @@ https://github.com/fortunejs/fortune/tree/master/website
         --><!--
       --><a href="#httpserializer-constructor" class="anchor">#</a></h2><p>The <code>HttpSerializer</code> should not be instantiated directly, since the constructor function accepts dependencies. The keys which are injected are:</p><ul><li><code>methods</code>: same as static property on Fortune class.</li><li><code>errors</code>: same as static property on Fortune class.</li><li><code>keys</code>: an object which enumerates reserved constants for record type definitions.</li><li><code>recordTypes</code>: an object which enumerates record types and their definitions.</li><li><code>castValue</code>: a function with the signature (<code>value</code>, <code>type</code>, <code>options</code>), useful for casting arbitrary values to a particular type.</li><li><code>options</code>: the options passed to the serializer.</li><li><code>adapter</code>: a reference to the adapter instance.</li><li><code>message</code>: a function with the signature (<code>id</code>, <code>language</code>, <code>data</code>).</li><li><code>Promise</code>: the Promise implementation.</li></ul><p>These keys are accessible on the instance (<code>this</code>).</p><h2 id="httpserializer-processrequest">HttpSerializer.<span class="key">processRequest</span> <!--
         --><!--
+          -->(<span class="parameter" title="Object">contextRequest</span>, <span class="parameter" title="Object">request</span>, <span class="parameter" title="Object">response</span>)<!--
+        --><!--
         --><!--
         --><span class="arrow">⇒</span><!--
         --><span class="return">Promise | Object</span><!--
