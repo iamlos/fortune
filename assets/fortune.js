@@ -1,6 +1,6 @@
 /*!
  * Fortune.js
- * Version 4.0.4
+ * Version 4.0.5
  * MIT License
  * http://fortunejs.com
  */
@@ -561,10 +561,6 @@ function worker () {
     delete: remove,
     deleteAll: removeAll
   }
-
-  if (!indexedDB)
-    throw new Error('IndexedDB is unsupported in a Web Worker in this ' +
-      'environment.')
 
   self.addEventListener('message', function (event) {
     var data = event.data
@@ -1386,6 +1382,7 @@ module.exports = AdapterSingleton
 
 // Local modules.
 var Core = require('./core')
+var AdapterSingleton = require('./adapter/singleton')
 var promise = require('./common/promise')
 var assign = require('./common/assign')
 var getGlobalObject = require('./common/global_object')
@@ -1453,6 +1450,48 @@ function Fortune (recordTypes, options) {
 
 
 Fortune.prototype = Object.create(Core.prototype)
+
+// Extend the connect method to check for IndexedDB within Web Worker feature.
+Fortune.prototype.connect = function () {
+  var self = this
+  var Promise = promise.Promise
+
+  return new Promise(function (resolve, reject) {
+    var blob, objectURL, worker
+
+    if (self.options.adapter[0] !== indexedDB) return
+
+    blob = new Blob([
+      'self.postMessage(Boolean(self.indexedDB))'
+    ], { type: 'text/javascript' })
+    objectURL = URL.createObjectURL(blob)
+    worker = new Worker(objectURL)
+
+    worker.onmessage = function (message) {
+      return message.data ? resolve() : reject()
+    }
+  })
+  .then(function () {
+    return Core.prototype.connect.call(self)
+  })
+  .catch(function () {
+    console.warn( // eslint-disable-line no-console
+      'IndexedDB functionality was not detected within a Web Worker.')
+
+    Object.defineProperty(self, 'adapter', {
+      enumerable: true,
+      configurable: true,
+      value: new AdapterSingleton({
+        adapter: memory,
+        recordTypes: self.recordTypes,
+        transforms: self.options.transforms
+      })
+    })
+
+    return Core.prototype.connect.call(self)
+  })
+}
+
 assign(Fortune, Core)
 
 
@@ -1477,7 +1516,7 @@ assign(Fortune, {
 
 module.exports = Fortune
 
-},{"./adapter/adapters/indexeddb":3,"./adapter/adapters/memory":6,"./common/assign":17,"./common/global_object":23,"./common/promise":27,"./core":29,"./net/websocket_request":41,"./net/websocket_sync":42}],10:[function(require,module,exports){
+},{"./adapter/adapters/indexeddb":3,"./adapter/adapters/memory":6,"./adapter/singleton":8,"./common/assign":17,"./common/global_object":23,"./common/promise":27,"./core":29,"./net/websocket_request":41,"./net/websocket_sync":42}],10:[function(require,module,exports){
 'use strict'
 
 var pull = require('./array/pull')
@@ -2239,7 +2278,7 @@ Fortune.prototype.constructor = function (recordTypes, options) {
     recordTypes: { value: recordTypes, enumerable: true },
 
     // Singleton instances.
-    adapter: { value: adapter, enumerable: true },
+    adapter: { value: adapter, enumerable: true, configurable: true },
 
     // Dispatch.
     flows: { value: flows }
@@ -6094,12 +6133,14 @@ module.exports = errorClass
 
 
 function errorClass (name) {
+  var ErrorClass
+
   if (!name || typeof name !== 'string')
-    throw TypeError('Argument "name" must be a non-empty string.')
+    throw new TypeError('Argument "name" must be a non-empty string.')
 
   // This is basically `eval`, there's no other way to dynamically define a
   // function name.
-  var ErrorClass = Function('setupError',
+  ErrorClass = new Function('setupError',
     'return function ' + name + ' () { ' +
     'if (!(this instanceof ' + name + ')) ' +
     'return new (' + name + '.bind.apply(' + name +
