@@ -1,6 +1,6 @@
 /*!
  * Fortune.js
- * Version 4.0.5
+ * Version 4.0.6
  * MIT License
  * http://fortunejs.com
  */
@@ -247,7 +247,7 @@ function compare (fields, sort) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"../../common/array/find":11,"../../common/deep_equal":20,"../../common/errors":21,"../../common/keys":24,"../../common/message":25,"buffer":47}],2:[function(require,module,exports){
+},{"../../common/array/find":11,"../../common/deep_equal":20,"../../common/errors":21,"../../common/keys":23,"../../common/message":24,"buffer":46}],2:[function(require,module,exports){
 'use strict'
 
 var common = require('../common')
@@ -336,6 +336,7 @@ exports.outputRecord = function (type, record) {
 
 var msgpack = require('msgpack-lite')
 var reduce = require('../../../common/array/reduce')
+var assign = require('../../../common/assign')
 var memoryAdapter = require('../memory')
 
 var common = require('../common')
@@ -359,19 +360,10 @@ var delimiter = helpers.delimiter
  */
 module.exports = function (Adapter) {
   var MemoryAdapter = memoryAdapter(Adapter)
-  var script = [
-    'var primaryKey = "' + primaryKey + '"',
-    'var delimiter = "' + delimiter + '"',
-    'var dataKey = "__data"',
-    '(' + worker.toString() + ')()'
-  ].join(';')
-  var blob = new Blob([ script ], { type: 'text/javascript' })
-  var objectURL = URL.createObjectURL(blob)
 
   function IndexedDBAdapter (properties) {
     MemoryAdapter.call(this, properties)
     if (!this.options.name) this.options.name = 'fortune'
-    this.worker = new Worker(objectURL)
   }
 
   Object.defineProperty(IndexedDBAdapter, internalKey, { value: true })
@@ -389,30 +381,87 @@ module.exports = function (Adapter) {
     return MemoryAdapter.prototype.connect.call(self)
     .then(function () {
       return new Promise(function (resolve, reject) {
-        self.worker.addEventListener('message', listener)
-        self.worker.postMessage({
-          id: id, method: 'connect',
-          name: name, typesArray: typesArray
-        })
+        var hasIndexedDB = 'indexedDB' in window
+        var hasWebWorker = 'Worker' in window
+        var hasBlob = 'Blob' in window
+        var hasCreateObjectURL = 'URL' in window && 'createObjectURL' in URL
+        var blob, objectURL, worker
 
-        function listener (event) {
-          var data = event.data
-          var result = data.result
-          var type
+        if (hasIndexedDB && hasWebWorker && hasBlob && hasCreateObjectURL)
+          // Now that we're in here, need to check for private browsing modes.
+          try {
+            // This will fail synchronously if it's not supported.
+            indexedDB.open('').onsuccess = function (event) {
+              event.target.result.close() // Close unused connection.
+            }
+          }
+          catch (error) {
+            return reject(new Error('IndexedDB capabilities detected, but a ' +
+              'connection could not be opened due to browser security.'))
+          }
+        else return reject(new Error('IndexedDB pre-requisites not met.'))
 
-          if (data.id !== id) return null
-          if (data.error) return reject(new Error(data.error))
+        // Need to check for IndexedDB support within Web Worker.
+        blob = new Blob([
+          'self.postMessage(Boolean(self.indexedDB))'
+        ], { type: 'text/javascript' })
+        objectURL = URL.createObjectURL(blob)
+        worker = new Worker(objectURL)
 
-          self.worker.removeEventListener('message', listener)
-
-          for (type in result)
-            self.db[type] = reducer(type, result[type])
-
-          return resolve()
+        worker.onmessage = function (message) {
+          return message.data ? resolve() : reject()
         }
+
+        return null
+      })
+      // After this point, no more checks.
+      .then(function () {
+        return new Promise(function (resolve, reject) {
+          var script, blob, objectURL
+
+          script = [
+            'var primaryKey = "' + primaryKey + '"',
+            'var delimiter = "' + delimiter + '"',
+            'var dataKey = "__data"',
+            '(' + worker.toString() + ')()'
+          ].join(';')
+          blob = new Blob([ script ], { type: 'text/javascript' })
+          objectURL = URL.createObjectURL(blob)
+
+          self.worker = new Worker(objectURL)
+          self.worker.addEventListener('message', listener)
+          self.worker.postMessage({
+            id: id, method: 'connect',
+            name: name, typesArray: typesArray
+          })
+
+          function listener (event) {
+            var data = event.data
+            var result = data.result
+            var type
+
+            if (data.id !== id) return null
+            if (data.error) return reject(new Error(data.error))
+
+            self.worker.removeEventListener('message', listener)
+
+            for (type in result)
+              self.db[type] = reducer(type, result[type])
+
+            return resolve()
+          }
+        })
+      })
+      // Warning and fallback to memory adapter.
+      .catch(function (error) {
+        console.warn(error.message) // eslint-disable-line no-console
+
+        // Assign instance methods of the memory adapter.
+        assign(self, MemoryAdapter.prototype)
       })
     })
 
+    // Populating memory database with results from IndexedDB.
     function reducer (type, records) {
       return reduce(records, function (hash, record) {
         record = outputRecord.call(self, type, msgpack.decode(record))
@@ -543,7 +592,7 @@ module.exports = function (Adapter) {
   return IndexedDBAdapter
 }
 
-},{"../../../common/array/reduce":15,"../../../common/constants":19,"../common":1,"../memory":6,"./helpers":2,"./worker":4,"msgpack-lite":54}],4:[function(require,module,exports){
+},{"../../../common/array/reduce":15,"../../../common/assign":17,"../../../common/constants":19,"../common":1,"../memory":6,"./helpers":2,"./worker":4,"msgpack-lite":53}],4:[function(require,module,exports){
 'use strict'
 
 module.exports = worker
@@ -966,18 +1015,21 @@ module.exports = function (Adapter) {
       collection[record[primaryKey]] = record
     }
 
-    // Clear records.
-    ids = Object.keys(collection)
+    // Clear least recently used records.
+    if (recordsPerType) {
+      ids = Object.keys(collection)
 
-    return (recordsPerType && ids.length > recordsPerType ?
-      self.delete(type, ids.slice(0, ids.length - recordsPerType)) :
-      Promise.resolve())
+      if (ids.length > recordsPerType) {
+        ids = ids.slice(0, ids.length - recordsPerType)
 
-    .then(function () {
-      return map(records, function (record) {
-        return outputRecord.call(self, type, record)
-      })
-    })
+        for (i = 0, j = ids.length; i < j; i++)
+          delete collection[ids[i]]
+      }
+    }
+
+    return Promise.resolve(map(records, function (record) {
+      return outputRecord.call(self, type, record)
+    }))
   }
 
 
@@ -1377,15 +1429,13 @@ function AdapterSingleton (properties) {
 
 module.exports = AdapterSingleton
 
-},{"../common/assign":17,"../common/constants":19,"../common/errors":21,"../common/keys":24,"../common/message":25,"../common/promise":27,"./":7}],9:[function(require,module,exports){
+},{"../common/assign":17,"../common/constants":19,"../common/errors":21,"../common/keys":23,"../common/message":24,"../common/promise":26,"./":7}],9:[function(require,module,exports){
 'use strict'
 
 // Local modules.
 var Core = require('./core')
-var AdapterSingleton = require('./adapter/singleton')
 var promise = require('./common/promise')
 var assign = require('./common/assign')
-var getGlobalObject = require('./common/global_object')
 
 // Static exports.
 var memory = require('./adapter/adapters/memory')
@@ -1403,12 +1453,6 @@ var net = {
   sync: sync
 }
 
-var globalObject = getGlobalObject()
-var hasIndexedDB = 'indexedDB' in globalObject
-var hasWebWorker = 'Worker' in globalObject
-var hasBlob = 'Blob' in globalObject
-var hasCreateObjectURL = 'URL' in globalObject && 'createObjectURL' in URL
-
 
 /**
  * This class just extends Core with some default serializers and static
@@ -1420,24 +1464,8 @@ function Fortune (recordTypes, options) {
   if (options === void 0) options = {}
 
   // Try to use IndexedDB first, fall back to memory adapter.
-  if (!('adapter' in options) &&
-    hasIndexedDB && hasWebWorker && hasBlob && hasCreateObjectURL)
-    // Now that we're in here, need to check for private browsing modes.
-    try {
-      // This will fail synchronously if it's not supported.
-      globalObject.indexedDB.open('').onsuccess = function (event) {
-        event.target.result.close() // Close unused connection.
-      }
-
-      options.adapter = [ indexedDB ]
-    }
-    catch (error) {
-       /* eslint-disable no-console */
-      console.warn('IndexedDB capabilities detected, but a connection can ' +
-        'not be opened due to browser security.')
-      console.error(error)
-      /* eslint-enable no-console */
-    }
+  if (!('adapter' in options))
+    options.adapter = [ indexedDB ]
 
   if (!('settings' in options))
     options.settings = {}
@@ -1450,47 +1478,6 @@ function Fortune (recordTypes, options) {
 
 
 Fortune.prototype = Object.create(Core.prototype)
-
-// Extend the connect method to check for IndexedDB within Web Worker feature.
-Fortune.prototype.connect = function () {
-  var self = this
-  var Promise = promise.Promise
-
-  return new Promise(function (resolve, reject) {
-    var blob, objectURL, worker
-
-    if (self.options.adapter[0] !== indexedDB) return
-
-    blob = new Blob([
-      'self.postMessage(Boolean(self.indexedDB))'
-    ], { type: 'text/javascript' })
-    objectURL = URL.createObjectURL(blob)
-    worker = new Worker(objectURL)
-
-    worker.onmessage = function (message) {
-      return message.data ? resolve() : reject()
-    }
-  })
-  .then(function () {
-    return Core.prototype.connect.call(self)
-  })
-  .catch(function () {
-    console.warn( // eslint-disable-line no-console
-      'IndexedDB functionality was not detected within a Web Worker.')
-
-    Object.defineProperty(self, 'adapter', {
-      enumerable: true,
-      configurable: true,
-      value: new AdapterSingleton({
-        adapter: memory,
-        recordTypes: self.recordTypes,
-        transforms: self.options.transforms
-      })
-    })
-
-    return Core.prototype.connect.call(self)
-  })
-}
 
 assign(Fortune, Core)
 
@@ -1516,7 +1503,7 @@ assign(Fortune, {
 
 module.exports = Fortune
 
-},{"./adapter/adapters/indexeddb":3,"./adapter/adapters/memory":6,"./adapter/singleton":8,"./common/assign":17,"./common/global_object":23,"./common/promise":27,"./core":29,"./net/websocket_request":41,"./net/websocket_sync":42}],10:[function(require,module,exports){
+},{"./adapter/adapters/indexeddb":3,"./adapter/adapters/memory":6,"./common/assign":17,"./common/promise":26,"./core":28,"./net/websocket_request":40,"./net/websocket_sync":41}],10:[function(require,module,exports){
 'use strict'
 
 var pull = require('./array/pull')
@@ -1704,28 +1691,28 @@ module.exports = function assign (target) {
 'use strict'
 
 /**
- * A fast deep clone function, which covers only JSON-serializable objects.
+ * A fast deep clone function, which covers mostly serializable objects.
  *
  * @param {*}
  * @return {*}
  */
-module.exports = function deepClone (node) {
-  var clone, key, value, isArray
+module.exports = function clone (input) {
+  var output, key, value, isArray
 
-  if (Array.isArray(node)) isArray = true
-  else if (!node || Object.getPrototypeOf(node) !== Object.prototype)
-    return node
+  if (Array.isArray(input)) isArray = true
+  else if (input == null || Object.getPrototypeOf(input) !== Object.prototype)
+    return input
 
-  clone = isArray ? [] : {}
+  output = isArray ? [] : {}
 
-  for (key in node) {
-    value = node[key]
-    clone[key] = value &&
+  for (key in input) {
+    value = input[key]
+    output[key] = value != null &&
       Object.getPrototypeOf(value) === Object.prototype ||
-      Array.isArray(value) ? deepClone(value) : value
+      Array.isArray(value) ? clone(value) : value
   }
 
-  return clone
+  return output
 }
 
 },{}],19:[function(require,module,exports){
@@ -1817,7 +1804,7 @@ function deepEqual (a, b) {
 module.exports = deepEqual
 
 }).call(this,{"isBuffer":require("../../node_modules/is-buffer/index.js")})
-},{"../../node_modules/is-buffer/index.js":53}],21:[function(require,module,exports){
+},{"../../node_modules/is-buffer/index.js":52}],21:[function(require,module,exports){
 'use strict'
 
 var responseClass = require('./response_classes')
@@ -1832,7 +1819,7 @@ exports.ConflictError = responseClass.ConflictError
 exports.UnsupportedError = responseClass.UnsupportedError
 exports.nativeErrors = responseClass.nativeErrors
 
-},{"./response_classes":28}],22:[function(require,module,exports){
+},{"./response_classes":27}],22:[function(require,module,exports){
 'use strict'
 
 var constants = require('./constants')
@@ -1844,24 +1831,6 @@ exports.disconnect = constants.disconnect
 exports.failure = constants.failure
 
 },{"./constants":19}],23:[function(require,module,exports){
-(function (global){
-'use strict'
-
-// Return the global object. Thanks Axel Rauschmayer.
-// https://gist.github.com/rauschma/1bff02da66472f555c75
-module.exports = function getGlobalObject () {
-  // Workers don’t have `window`, only `self`.
-  if (typeof self !== 'undefined') return self // eslint-disable-line no-undef
-
-  // Node.js detection.
-  if (typeof global !== 'undefined') return global
-
-  // Not all environments allow eval and Function. Use only as a last resort:
-  return Function('return this')() // eslint-disable-line no-new-func
-}
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],24:[function(require,module,exports){
 'use strict'
 
 var constants = require('./constants')
@@ -1873,7 +1842,7 @@ exports.isArray = constants.isArray
 exports.inverse = constants.inverse
 exports.denormalizedInverse = constants.denormalizedInverse
 
-},{"./constants":19}],25:[function(require,module,exports){
+},{"./constants":19}],24:[function(require,module,exports){
 'use strict'
 
 var genericMessage = 'GenericError'
@@ -1971,7 +1940,7 @@ message.en = {
 }
 /* eslint-enable max-len */
 
-},{}],26:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 'use strict'
 
 var constants = require('./constants')
@@ -1981,14 +1950,14 @@ exports.create = constants.create
 exports.update = constants.update
 exports.delete = constants.delete
 
-},{"./constants":19}],27:[function(require,module,exports){
+},{"./constants":19}],26:[function(require,module,exports){
 'use strict'
 
 // This object exists as a container for the Promise implementation. By
 // default, it's the native one.
 exports.Promise = Promise
 
-},{}],28:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 'use strict'
 
 var errorClass = require('error-class')
@@ -2027,7 +1996,7 @@ function successClass (name) {
     'assign(this, x) }')(assign)
 }
 
-},{"./assign":17,"error-class":49}],29:[function(require,module,exports){
+},{"./assign":17,"error-class":48}],28:[function(require,module,exports){
 'use strict'
 
 var EventLite = require('event-lite')
@@ -2441,7 +2410,7 @@ function bindMiddleware (scope, method) {
 
 module.exports = Fortune
 
-},{"./adapter":7,"./adapter/adapters/memory":6,"./adapter/singleton":8,"./common/assign":17,"./common/errors":21,"./common/events":22,"./common/message":25,"./common/methods":26,"./common/promise":27,"./dispatch":36,"./record_type/ensure_types":44,"./record_type/validate":45,"event-lite":50}],30:[function(require,module,exports){
+},{"./adapter":7,"./adapter/adapters/memory":6,"./adapter/singleton":8,"./common/assign":17,"./common/errors":21,"./common/events":22,"./common/message":24,"./common/methods":25,"./common/promise":26,"./dispatch":35,"./record_type/ensure_types":43,"./record_type/validate":44,"event-lite":49}],29:[function(require,module,exports){
 'use strict'
 
 var message = require('../common/message')
@@ -2525,7 +2494,7 @@ module.exports = function checkLinks (record, fields, links, meta) {
   })
 }
 
-},{"../common/array/includes":12,"../common/array/map":13,"../common/array/unique":16,"../common/errors":21,"../common/keys":24,"../common/message":25,"../common/promise":27}],31:[function(require,module,exports){
+},{"../common/array/includes":12,"../common/array/map":13,"../common/array/unique":16,"../common/errors":21,"../common/keys":23,"../common/message":24,"../common/promise":26}],30:[function(require,module,exports){
 'use strict'
 
 var validateRecords = require('./validate_records')
@@ -2716,7 +2685,7 @@ module.exports = function (context) {
   })
 }
 
-},{"../common/array/map":13,"../common/constants":19,"../common/errors":21,"../common/message":25,"../common/promise":27,"../record_type/enforce":43,"./check_links":30,"./update_helpers":38,"./validate_records":39}],32:[function(require,module,exports){
+},{"../common/array/map":13,"../common/constants":19,"../common/errors":21,"../common/message":24,"../common/promise":26,"../record_type/enforce":42,"./check_links":29,"./update_helpers":37,"./validate_records":38}],31:[function(require,module,exports){
 'use strict'
 
 var message = require('../common/message')
@@ -2877,7 +2846,7 @@ module.exports = function (context) {
   })
 }
 
-},{"../common/array/map":13,"../common/constants":19,"../common/errors":21,"../common/message":25,"../common/promise":27,"./update_helpers":38}],33:[function(require,module,exports){
+},{"../common/array/map":13,"../common/constants":19,"../common/errors":21,"../common/message":24,"../common/promise":26,"./update_helpers":37}],32:[function(require,module,exports){
 'use strict'
 
 var map = require('../common/array/map')
@@ -2961,7 +2930,7 @@ module.exports = function (context) {
   })
 }
 
-},{"../common/array/map":13,"../common/promise":27}],34:[function(require,module,exports){
+},{"../common/array/map":13,"../common/promise":26}],33:[function(require,module,exports){
 'use strict'
 
 /**
@@ -2991,7 +2960,7 @@ module.exports = function (context) {
   })
 }
 
-},{}],35:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 'use strict'
 
 var promise = require('../common/promise')
@@ -3175,7 +3144,7 @@ function matchId (id) {
   }
 }
 
-},{"../common/array/find":11,"../common/array/map":13,"../common/array/reduce":15,"../common/errors":21,"../common/keys":24,"../common/promise":27}],36:[function(require,module,exports){
+},{"../common/array/find":11,"../common/array/map":13,"../common/array/reduce":15,"../common/errors":21,"../common/keys":23,"../common/promise":26}],35:[function(require,module,exports){
 'use strict'
 
 var promise = require('../common/promise')
@@ -3310,7 +3279,7 @@ function setDefaults (options) {
 
 module.exports = dispatch
 
-},{"../common/array/unique":16,"../common/assign":17,"../common/message":25,"../common/methods":26,"../common/promise":27,"../common/response_classes":28,"./create":31,"./delete":32,"./end":33,"./find":34,"./include":35,"./update":37}],37:[function(require,module,exports){
+},{"../common/array/unique":16,"../common/assign":17,"../common/message":24,"../common/methods":25,"../common/promise":26,"../common/response_classes":27,"./create":30,"./delete":31,"./end":32,"./find":33,"./include":34,"./update":36}],36:[function(require,module,exports){
 'use strict'
 
 var deepEqual = require('../common/deep_equal')
@@ -3711,7 +3680,7 @@ function dropFields (update, fields) {
     if (!(field in fields)) delete update.push[field]
 }
 
-},{"../common/apply_update":10,"../common/array/find":11,"../common/array/includes":12,"../common/array/map":13,"../common/assign":17,"../common/clone":18,"../common/constants":19,"../common/deep_equal":20,"../common/errors":21,"../common/message":25,"../common/promise":27,"../record_type/enforce":43,"./check_links":30,"./update_helpers":38,"./validate_records":39}],38:[function(require,module,exports){
+},{"../common/apply_update":10,"../common/array/find":11,"../common/array/includes":12,"../common/array/map":13,"../common/assign":17,"../common/clone":18,"../common/constants":19,"../common/deep_equal":20,"../common/errors":21,"../common/message":24,"../common/promise":26,"../record_type/enforce":42,"./check_links":29,"./update_helpers":37,"./validate_records":38}],37:[function(require,module,exports){
 'use strict'
 
 var find = require('../common/array/find')
@@ -3766,7 +3735,7 @@ exports.removeId = function (id, update, field, isArray) {
   update.replace[field] = null
 }
 
-},{"../common/array/find":11,"../common/keys":24}],39:[function(require,module,exports){
+},{"../common/array/find":11,"../common/keys":23}],38:[function(require,module,exports){
 'use strict'
 
 var message = require('../common/message')
@@ -3837,12 +3806,12 @@ module.exports = function validateRecords (records, fields, links, meta) {
   }
 }
 
-},{"../common/errors":21,"../common/keys":24,"../common/message":25}],40:[function(require,module,exports){
+},{"../common/errors":21,"../common/keys":23,"../common/message":24}],39:[function(require,module,exports){
 'use strict'
 
 window.fortune = require('./browser')
 
-},{"./browser":9}],41:[function(require,module,exports){
+},{"./browser":9}],40:[function(require,module,exports){
 'use strict'
 
 var msgpack = require('msgpack-lite')
@@ -3913,7 +3882,7 @@ function request (client, options, state) {
 
 module.exports = request
 
-},{"../adapter/adapters/common":1,"../common/promise":27,"msgpack-lite":54}],42:[function(require,module,exports){
+},{"../adapter/adapters/common":1,"../common/promise":26,"msgpack-lite":53}],41:[function(require,module,exports){
 'use strict'
 
 var Fortune = require('../core')
@@ -3984,7 +3953,7 @@ function sync (client, instance, merge) {
 
 module.exports = sync
 
-},{"../common/constants":19,"../common/promise":27,"../core":29,"msgpack-lite":54}],43:[function(require,module,exports){
+},{"../common/constants":19,"../common/promise":26,"../core":28,"msgpack-lite":53}],42:[function(require,module,exports){
 (function (Buffer){
 'use strict'
 
@@ -4125,7 +4094,7 @@ function matchId (a) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"../common/array/find":11,"../common/errors":21,"../common/keys":24,"../common/message":25,"buffer":47}],44:[function(require,module,exports){
+},{"../common/array/find":11,"../common/errors":21,"../common/keys":23,"../common/message":24,"buffer":46}],43:[function(require,module,exports){
 'use strict'
 
 var keys = require('../common/keys')
@@ -4206,7 +4175,7 @@ module.exports = function ensureTypes (types) {
     }
 }
 
-},{"../common/keys":24}],45:[function(require,module,exports){
+},{"../common/keys":23}],44:[function(require,module,exports){
 (function (Buffer){
 'use strict'
 
@@ -4291,7 +4260,7 @@ function validateField (value, key) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"../common/array/find":11,"../common/keys":24,"buffer":47}],46:[function(require,module,exports){
+},{"../common/array/find":11,"../common/keys":23,"buffer":46}],45:[function(require,module,exports){
 'use strict'
 
 exports.toByteArray = toByteArray
@@ -4402,7 +4371,7 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],47:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -6117,14 +6086,14 @@ function isnan (val) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":46,"ieee754":51,"isarray":48}],48:[function(require,module,exports){
+},{"base64-js":45,"ieee754":50,"isarray":47}],47:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],49:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 'use strict'
 
 var hasCaptureStackTrace = 'captureStackTrace' in Error
@@ -6183,7 +6152,7 @@ function nonEnumerableProperty (value) {
   }
 }
 
-},{}],50:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 /**
  * event-lite.js - Light-weight EventEmitter (less than 1KB when gzipped)
  *
@@ -6365,7 +6334,7 @@ function EventLite() {
 
 })(EventLite);
 
-},{}],51:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -6451,7 +6420,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],52:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 (function (Buffer){
 // int64-buffer.js
 
@@ -6725,7 +6694,7 @@ var Uint64BE, Int64BE;
 }(typeof exports === 'object' && typeof exports.nodeName !== 'string' ? exports : (this || {}));
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":47}],53:[function(require,module,exports){
+},{"buffer":46}],52:[function(require,module,exports){
 /**
  * Determine if an object is Buffer
  *
@@ -6744,7 +6713,7 @@ module.exports = function (obj) {
     ))
 }
 
-},{}],54:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 // browser.js
 
 exports.encode = require("./encode").encode;
@@ -6756,7 +6725,7 @@ exports.Decoder = require("./decoder").Decoder;
 exports.createCodec = require("./ext").createCodec;
 exports.codec = require("./codec").codec;
 
-},{"./codec":57,"./decode":59,"./decoder":60,"./encode":62,"./encoder":63,"./ext":66}],55:[function(require,module,exports){
+},{"./codec":56,"./decode":58,"./decoder":59,"./encode":61,"./encoder":62,"./ext":65}],54:[function(require,module,exports){
 // util.js
 
 var Int64Buffer = require("int64-buffer");
@@ -6864,7 +6833,7 @@ function writeInt64BE(value, offset) {
   new Int64BE(this, offset, value);
 }
 
-},{"int64-buffer":52}],56:[function(require,module,exports){
+},{"int64-buffer":51}],55:[function(require,module,exports){
 // buffer-shortage.js
 
 exports.BufferShortageError = BufferShortageError;
@@ -6874,14 +6843,14 @@ BufferShortageError.prototype = Error.prototype;
 function BufferShortageError() {
 }
 
-},{}],57:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 // codec.js
 
 exports.codec = {
   preset: require("./ext").createCodec({preset: true})
 };
 
-},{"./ext":66}],58:[function(require,module,exports){
+},{"./ext":65}],57:[function(require,module,exports){
 (function (Buffer){
 // decode-buffer.js
 
@@ -6956,7 +6925,7 @@ DecodeBuffer.prototype.flush = function() {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"./buffer-shortage":56,"./codec":57,"buffer":47}],59:[function(require,module,exports){
+},{"./buffer-shortage":55,"./codec":56,"buffer":46}],58:[function(require,module,exports){
 // decode.js
 
 exports.decode = decode;
@@ -6968,7 +6937,7 @@ function decode(input, options) {
   decoder.write(input);
   return decoder.read();
 }
-},{"./decode-buffer":58}],60:[function(require,module,exports){
+},{"./decode-buffer":57}],59:[function(require,module,exports){
 // decoder.js
 
 exports.Decoder = Decoder;
@@ -6999,7 +6968,7 @@ Decoder.prototype.end = function(chunk) {
   this.emit("end");
 };
 
-},{"./decode-buffer":58,"event-lite":50}],61:[function(require,module,exports){
+},{"./decode-buffer":57,"event-lite":49}],60:[function(require,module,exports){
 (function (Buffer){
 // encode-buffer.js
 
@@ -7103,7 +7072,7 @@ EncodeBuffer.prototype.send = function(buffer) {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"./codec":57,"buffer":47}],62:[function(require,module,exports){
+},{"./codec":56,"buffer":46}],61:[function(require,module,exports){
 // encode.js
 
 exports.encode = encode;
@@ -7116,7 +7085,7 @@ function encode(input, options) {
   return encoder.read();
 }
 
-},{"./encode-buffer":61}],63:[function(require,module,exports){
+},{"./encode-buffer":60}],62:[function(require,module,exports){
 // encoder.js
 
 exports.Encoder = Encoder;
@@ -7144,7 +7113,7 @@ Encoder.prototype.end = function(chunk) {
   this.emit("end");
 };
 
-},{"./encode-buffer":61,"event-lite":50}],64:[function(require,module,exports){
+},{"./encode-buffer":60,"event-lite":49}],63:[function(require,module,exports){
 // ext-buffer.js
 
 exports.ExtBuffer = ExtBuffer;
@@ -7155,7 +7124,7 @@ function ExtBuffer(buffer, type) {
   this.type = type;
 }
 
-},{}],65:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 (function (Buffer){
 // ext-preset.js
 
@@ -7347,7 +7316,7 @@ function unpackArrayBuffer(value) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"./decode":59,"./encode":62,"buffer":47}],66:[function(require,module,exports){
+},{"./decode":58,"./encode":61,"buffer":46}],65:[function(require,module,exports){
 // ext.js
 
 var IS_ARRAY = require("isarray");
@@ -7429,7 +7398,7 @@ function join(filters) {
   }
 }
 
-},{"./ext-buffer":64,"./ext-preset":65,"./read-core":67,"./write-core":70,"isarray":74}],67:[function(require,module,exports){
+},{"./ext-buffer":63,"./ext-preset":64,"./read-core":66,"./write-core":69,"isarray":73}],66:[function(require,module,exports){
 // read-core.js
 
 exports.getDecoder = getDecoder;
@@ -7449,7 +7418,7 @@ function getDecoder(options) {
   }
 }
 
-},{"./read-format":68,"./read-token":69}],68:[function(require,module,exports){
+},{"./read-format":67,"./read-token":68}],67:[function(require,module,exports){
 (function (Buffer){
 // read-format.js
 
@@ -7607,7 +7576,7 @@ function slice(start, end) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"./buffer-lite":55,"./buffer-shortage":56,"buffer":47,"ieee754":51,"int64-buffer":52}],69:[function(require,module,exports){
+},{"./buffer-lite":54,"./buffer-shortage":55,"buffer":46,"ieee754":50,"int64-buffer":51}],68:[function(require,module,exports){
 // read-token.js
 
 var ReadFormat = require("./read-format");
@@ -7770,7 +7739,7 @@ function fix(len, method) {
   };
 }
 
-},{"./read-format":68}],70:[function(require,module,exports){
+},{"./read-format":67}],69:[function(require,module,exports){
 // write-core.js
 
 exports.getEncoder = getEncoder;
@@ -7788,7 +7757,7 @@ function getEncoder(options) {
   }
 }
 
-},{"./write-type":72}],71:[function(require,module,exports){
+},{"./write-type":71}],70:[function(require,module,exports){
 (function (Buffer){
 // write-token.js
 
@@ -7991,7 +7960,7 @@ function writeN(type, len, method, noAssert) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"./buffer-lite":55,"./write-uint8":73,"buffer":47}],72:[function(require,module,exports){
+},{"./buffer-lite":54,"./write-uint8":72,"buffer":46}],71:[function(require,module,exports){
 (function (Buffer){
 // write-type.js
 
@@ -8256,7 +8225,7 @@ function move(encoder, start, length, diff) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"./buffer-lite":55,"./ext-buffer":64,"./write-token":71,"./write-uint8":73,"buffer":47,"int64-buffer":52,"isarray":74}],73:[function(require,module,exports){
+},{"./buffer-lite":54,"./ext-buffer":63,"./write-token":70,"./write-uint8":72,"buffer":46,"int64-buffer":51,"isarray":73}],72:[function(require,module,exports){
 // write-unit8.js
 
 var constant = exports.uint8 = new Array(256);
@@ -8272,6 +8241,6 @@ function write0(type) {
   };
 }
 
-},{}],74:[function(require,module,exports){
-arguments[4][48][0].apply(exports,arguments)
-},{"dup":48}]},{},[40]);
+},{}],73:[function(require,module,exports){
+arguments[4][47][0].apply(exports,arguments)
+},{"dup":47}]},{},[39]);
