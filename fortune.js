@@ -1,6 +1,6 @@
 /*!
  * Fortune.js
- * Version 4.0.7
+ * Version 4.1.0
  * MIT License
  * http://fortunejs.com
  */
@@ -1862,9 +1862,8 @@ module.exports = message
 function message (id, language, data) {
   var str, key
 
-  // Assign fallback language to "en".
   if (!language || !(language in message))
-    language = 'en'
+    language = message.defaultLanguage
 
   if (!(id in message[language]))
     return message[language][genericMessage] || message.en[genericMessage]
@@ -1876,6 +1875,10 @@ function message (id, language, data) {
   return str
 }
 
+// Assign fallback language to "en".
+Object.defineProperty(message, 'defaultLanguage', {
+  value: 'en', writable: true
+})
 
 // Default language messages.
 /* eslint-disable max-len */
@@ -1919,7 +1922,10 @@ message.en = {
 
   // Used for HTML serializer.
   'Index': 'Index',
+  'Class': 'Class',
+  'Name': 'Name',
   'Type': 'Type',
+  'Description': 'Description',
   'Include': 'Include',
   'QueryOptions': 'Query Options',
   'IncludedLabel': 'included',
@@ -2057,7 +2063,7 @@ Fortune.prototype = Object.create(EventLite.prototype)
  * objects. Here are some example field definitions:
  *
  * ```js
- * {
+ * [recordType]: {
  *   // A singular value.
  *   name: { type: String },
  *
@@ -2101,7 +2107,7 @@ Fortune.prototype = Object.create(EventLite.prototype)
  *   considered omitted.
  *
  *   ```js
- *   [
+ *   adapter: [
  *     // Must be a class that extends `Fortune.Adapter`, or a function
  *     // that accepts the Adapter class and returns a subclass. Required.
  *     Adapter => { ... },
@@ -2136,7 +2142,7 @@ Fortune.prototype = Object.create(EventLite.prototype)
  *   and displaying the timestamp in the server's locale:
  *
  *   ```js
- *   [
+ *   [recordType]: [
  *     (context, record, update) => {
  *       const method = context.request.method
  *
@@ -2165,13 +2171,34 @@ Fortune.prototype = Object.create(EventLite.prototype)
  *   bulk write operations are all or nothing. Each request is treated as a
  *   single transaction.
  *
+ * - `documentation`: an object mapping names to descriptions. Note that there
+ *   is only one namepspace, so field names can only have one description.
+ *   This is optional, but useful for the HTML serializer, which also emits
+ *   this information as micro-data.
+ *
+ *   ```js
+ *   documentation: {
+ *     [recordType]: 'Description of a type.',
+ *     [fieldName]: 'Description of a field.',
+ *     [fieldName]: {
+ *       en: 'Two letter language code indicates localized description.'
+ *     }
+ *   }
+ *   ```
+ *
  * - `settings`: internal settings to configure.
  *
  *   ```js
- *   {
+ *   settings: {
  *     // Whether or not to enforce referential integrity. Default: `true` for
  *     // server, `false` for browser.
- *     enforceLinks: true
+ *     enforceLinks: true,
+ *
+ *     // Name of the application used for display purposes.
+ *     name: 'My Awesome Application',
+ *
+ *     // Description of the application used for display purposes.
+ *     description: 'media type "application/vnd.micro+json"'
  *   }
  *   ```
  *
