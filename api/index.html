@@ -17,83 +17,80 @@ https://github.com/fortunejs/fortune/tree/master/website
         --><span class="arrow">⇒</span><!--
         --><span class="return">Fortune</span><!--
         --><!--
-      --><a href="#fortune-constructor" class="anchor">#</a></h2><p>Create a new instance, the only required input is record type definitions. The first argument must be an object keyed by name, valued by definition objects. Here are some example field definitions:</p><pre><code class="lang-js"><span class="hljs-selector-attr">[recordType]</span>: {
-  <span class="hljs-comment">// A singular value.</span>
-  <span class="hljs-attribute">name</span>: { <span class="hljs-attribute">type</span>: String },
+      --><a href="#fortune-constructor" class="anchor">#</a></h2><p>Create a new instance, the only required input is record type definitions. The first argument must be an object keyed by name, valued by definition objects. Here are some example field definitions:</p><pre><code class="lang-js">{
+  <span class="hljs-attribute">recordType</span>: {
+    <span class="hljs-comment">// A singular value.</span>
+    <span class="hljs-attribute">name</span>: { <span class="hljs-attribute">type</span>: String },
 
-  <span class="hljs-comment">// An array containing values of a single type.</span>
-  <span class="hljs-attribute">luckyNumbers</span>: { <span class="hljs-attribute">type</span>: Number, <span class="hljs-attribute">isArray</span>: true },
+    <span class="hljs-comment">// An array containing values of a single type.</span>
+    <span class="hljs-attribute">luckyNumbers</span>: { <span class="hljs-attribute">type</span>: Number, <span class="hljs-attribute">isArray</span>: true },
 
-  <span class="hljs-comment">// Creates a to-many link to `animal` record type. If the field `owner`</span>
-  <span class="hljs-comment">// on the `animal` record type is not an array, this is a many-to-one</span>
-  <span class="hljs-comment">// relationship, otherwise it is many-to-many.</span>
-  <span class="hljs-attribute">pets</span>: { <span class="hljs-attribute">link</span>: <span class="hljs-string">'animal'</span>, <span class="hljs-attribute">isArray</span>: true, <span class="hljs-attribute">inverse</span>: <span class="hljs-string">'owner'</span> },
+    <span class="hljs-comment">// Creates a to-many link to `animal` record type. If the field `owner`</span>
+    <span class="hljs-comment">// on the `animal` record type is not an array, this is a many-to-one</span>
+    <span class="hljs-comment">// relationship, otherwise it is many-to-many.</span>
+    <span class="hljs-attribute">pets</span>: { <span class="hljs-attribute">link</span>: <span class="hljs-string">'animal'</span>, <span class="hljs-attribute">isArray</span>: true, <span class="hljs-attribute">inverse</span>: <span class="hljs-string">'owner'</span> },
 
-  <span class="hljs-comment">// The `min` and `max` keys are open to interpretation by the specific</span>
-  <span class="hljs-comment">// adapter, which may introspect the field definition.</span>
-  <span class="hljs-attribute">thing</span>: { <span class="hljs-attribute">type</span>: Number, <span class="hljs-attribute">min</span>: <span class="hljs-number">0</span>, <span class="hljs-attribute">max</span>: <span class="hljs-number">100</span> },
+    <span class="hljs-comment">// The `min` and `max` keys are open to interpretation by the specific</span>
+    <span class="hljs-comment">// adapter, which may introspect the field definition.</span>
+    <span class="hljs-attribute">thing</span>: { <span class="hljs-attribute">type</span>: Number, <span class="hljs-attribute">min</span>: <span class="hljs-number">0</span>, <span class="hljs-attribute">max</span>: <span class="hljs-number">100</span> },
 
-  <span class="hljs-comment">// Nested field definitions are invalid. Use `Object` type instead.</span>
-  <span class="hljs-attribute">nested</span>: { <span class="hljs-attribute">thing</span>: { ... } } <span class="hljs-comment">// Will throw an error.</span>
-}
-</code></pre><p>The allowed native types are <code>String</code>, <code>Number</code>, <code>Boolean</code>, <code>Date</code>, <code>Object</code>, and <code>Buffer</code>. Note that the <code>Object</code> type should be a JSON serializable object that may be persisted. The only other allowed type is a <code>Function</code>, which may be used to define custom types.</p><p>A type function should accept one argument, the value, and return a boolean based on whether the value is valid for the type or not. It may optionally have properties <code>sort</code> and <code>equal</code>, which should be valued as functions.</p><ul><li><code>compare</code>: same signature as comparing with <code>Array.prototype.sort</code>.</li><li><code>equal</code>: return a boolean value if the two arguments are equal.</li></ul><p>These optional functions are used for the memory adapter and web browser adapters, but may not be run by other adapters.</p><p>The options object may contain the following keys:</p><ul><li><p><code>adapter</code>: configuration array for the adapter. The default type is the memory adapter. If the value is not an array, its settings will be considered omitted.</p><pre><code class="lang-js">adapter: <span class="hljs-meta">[</span>
-  <span class="hljs-comment">// Must be a class that extends `Fortune.Adapter`, or a function</span>
-  <span class="hljs-comment">// that accepts the Adapter class and returns a subclass. Required.</span>
-  Adapter =&gt; { <span class="hljs-attr">...</span> },
-
-  <span class="hljs-comment">// An options object that is specific to the adapter. Optional.</span>
-  { <span class="hljs-attr">...</span> }
-<span class="hljs-meta">]</span>
-</code></pre></li><li><p><code>transforms</code>: keyed by type name, valued by an array containing an <code>input</code> and/or <code>output</code> function at indices <code>0</code> and <code>1</code> respectively.</p><p>A transform function takes at least two arguments, the internal <code>context</code> object and a single <code>record</code>. A special case is the <code>update</code> argument for the <code>update</code> method.</p><p>There are two kinds of transforms, before a record is written to transform input, and after it is read to transform output, both are optional. If an error occurs within an transform function, it will be forwarded to the response. Use typed errors to provide the appropriate feedback. It is varant to note that <code>output</code> transforms are run every time a record is shown in a response, so it should be idempotent.</p><p>For a create request, the input transform must return the second argument <code>record</code> either synchronously, or asynchronously as a Promise. The return value of a delete request is inconsequential, but it may return a value or a Promise. There is a special case of the <code>update</code> method accepting a <code>update</code> object as a third parameter, which must be returned synchronously or as a Promise.</p><p>An example transform to apply a timestamp on a record before creation, and displaying the timestamp in the server&#39;s locale:</p><p>```js</p></li></ul><pre><code>(context, <span class="hljs-keyword">record</span>, update) =&gt; {
-  const method = context.request.method
-
-  <span class="hljs-keyword">if</span> (method === <span class="hljs-symbol">'create</span>') {
-    <span class="hljs-keyword">record</span>.timestamp = <span class="hljs-keyword">new</span> Date()
-    <span class="hljs-keyword">return</span> <span class="hljs-keyword">record</span>
+    <span class="hljs-comment">// Nested field definitions are invalid. Use `Object` type instead.</span>
+    <span class="hljs-attribute">nested</span>: { <span class="hljs-attribute">thing</span>: { ... } } <span class="hljs-comment">// Will throw an error.</span>
   }
-
-  <span class="hljs-keyword">if</span> (update) <span class="hljs-keyword">return</span> update
-
-  // <span class="hljs-keyword">If</span> we get here, <span class="hljs-keyword">return</span> value <span class="hljs-keyword">of</span> the delete method doesn<span class="hljs-symbol">'t</span> matter.
-  <span class="hljs-keyword">return</span> null
-},
-(context, <span class="hljs-keyword">record</span>) =&gt; {
-  <span class="hljs-keyword">record</span>.timestamp = <span class="hljs-keyword">record</span>.timestamp.toLocaleString()
-  <span class="hljs-keyword">return</span> <span class="hljs-keyword">record</span>
 }
-</code></pre><p>]</p><pre><code>
-  Requests to <span class="hljs-keyword">update</span> a <span class="hljs-built_in">record</span> will **<span class="hljs-keyword">NOT</span>** have the updates already applied
-  <span class="hljs-keyword">to</span> the record.
+</code></pre><p>The allowed native types are <code>String</code>, <code>Number</code>, <code>Boolean</code>, <code>Date</code>, <code>Object</code>, and <code>Buffer</code>. Note that the <code>Object</code> type should be a JSON serializable object that may be persisted. The only other allowed type is a <code>Function</code>, which may be used to define custom types.</p><p>A type function should accept one argument, the value, and return a boolean based on whether the value is valid for the type or not. It may optionally have properties <code>sort</code> and <code>equal</code>, which should be valued as functions.</p><ul><li><code>compare</code>: same signature as comparing with <code>Array.prototype.sort</code>.</li><li><code>equal</code>: return a boolean value if the two arguments are equal.</li></ul><p>These optional functions are used for the memory adapter and web browser adapters, but may not be run by other adapters.</p><p>The options object may contain the following keys:</p><ul><li><p><code>adapter</code>: configuration array for the adapter. The default type is the memory adapter. If the value is not an array, its settings will be considered omitted.</p><pre><code class="lang-js">{
+  adapter: <span class="hljs-meta">[</span>
+    <span class="hljs-comment">// Must be a class that extends `Fortune.Adapter`, or a function</span>
+    <span class="hljs-comment">// that accepts the Adapter class and returns a subclass. Required.</span>
+    Adapter =&gt; { <span class="hljs-attr">...</span> },
 
-  Another feature <span class="hljs-keyword">of</span> the <span class="hljs-keyword">input</span> transform <span class="hljs-keyword">is</span> that it will have <span class="hljs-keyword">access</span> <span class="hljs-keyword">to</span> a
-  <span class="hljs-keyword">temporary</span> <span class="hljs-keyword">field</span> <span class="hljs-string">`context.transaction`</span>. This <span class="hljs-keyword">is</span> useful <span class="hljs-keyword">for</span> ensuring that
-  <span class="hljs-keyword">bulk</span> write <span class="hljs-keyword">operations</span> <span class="hljs-keyword">are</span> all <span class="hljs-keyword">or</span> nothing. <span class="hljs-keyword">Each</span> request <span class="hljs-keyword">is</span> treated <span class="hljs-keyword">as</span> a
-  single transaction.
+    <span class="hljs-comment">// An options object that is specific to the adapter. Optional.</span>
+    { <span class="hljs-attr">...</span> }
+  <span class="hljs-meta">]</span>
+}
+</code></pre></li><li><p><code>transforms</code>: keyed by type name, valued by an array containing an <code>input</code> and/or <code>output</code> function at indices <code>0</code> and <code>1</code> respectively.</p><p>A transform function takes at least two arguments, the internal <code>context</code> object and a single <code>record</code>. A special case is the <code>update</code> argument for the <code>update</code> method.</p><p>There are two kinds of transforms, before a record is written to transform input, and after it is read to transform output, both are optional. If an error occurs within an transform function, it will be forwarded to the response. Use typed errors to provide the appropriate feedback. It is varant to note that <code>output</code> transforms are run every time a record is shown in a response, so it should be idempotent.</p><p>For a create request, the input transform must return the second argument <code>record</code> either synchronously, or asynchronously as a Promise. The return value of a delete request is inconsequential, but it may return a value or a Promise. There is a special case of the <code>update</code> method accepting a <code>update</code> object as a third parameter, which must be returned synchronously or as a Promise.</p><p>An example transform to apply a timestamp on a record before creation, and displaying the timestamp in the server&#39;s locale:</p><pre><code class="lang-js">{
+  recordType: [
+    (context, <span class="hljs-keyword">record</span>, update) =&gt; {
+      const method = context.request.method
 
-- <span class="hljs-string">`documentation`</span>: an <span class="hljs-keyword">object</span> <span class="hljs-keyword">mapping</span> <span class="hljs-keyword">names</span> <span class="hljs-keyword">to</span> descriptions. Note that there
-  <span class="hljs-keyword">is</span> <span class="hljs-keyword">only</span> one namepspace, so <span class="hljs-keyword">field</span> <span class="hljs-keyword">names</span> can <span class="hljs-keyword">only</span> have one description.
-  This <span class="hljs-keyword">is</span> optional, but useful <span class="hljs-keyword">for</span> the HTML serializer, which also emits
-  this information <span class="hljs-keyword">as</span> micro-data.
+      <span class="hljs-keyword">if</span> (method === <span class="hljs-symbol">'create</span>') {
+        <span class="hljs-keyword">record</span>.timestamp = <span class="hljs-keyword">new</span> Date()
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">record</span>
+      }
 
-  <span class="hljs-string">``</span><span class="hljs-string">`js
-  documentation: {
-    [recordType]: 'Description of a type.',
-    [fieldName]: 'Description of a field.',
-    [fieldName]: {
-      en: 'Two letter language code indicates localized description.'
+      <span class="hljs-keyword">if</span> (update) <span class="hljs-keyword">return</span> update
+
+      // <span class="hljs-keyword">If</span> we get here, <span class="hljs-keyword">return</span> value <span class="hljs-keyword">of</span> the delete method doesn<span class="hljs-symbol">'t</span> matter.
+      <span class="hljs-keyword">return</span> null
+    },
+    (context, <span class="hljs-keyword">record</span>) =&gt; {
+      <span class="hljs-keyword">record</span>.timestamp = <span class="hljs-keyword">record</span>.timestamp.toLocaleString()
+      <span class="hljs-keyword">return</span> <span class="hljs-keyword">record</span>
     }
-  }</span>
-</code></pre><ul><li><p><code>settings</code>: internal settings to configure.</p><pre><code class="lang-js">settings: {
-  // Whether <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> to enforce referential integrity. Default: `<span class="hljs-literal">true</span>` <span class="hljs-keyword">for</span>
-  // server, `<span class="hljs-literal">false</span>` <span class="hljs-keyword">for</span> browser.
-  enforceLinks: <span class="hljs-literal">true</span>,
+  ]
+}
+</code></pre><p>Requests to update a record will <strong>NOT</strong> have the updates already applied to the record.</p><p>Another feature of the input transform is that it will have access to a temporary field <code>context.transaction</code>. This is useful for ensuring that bulk write operations are all or nothing. Each request is treated as a single transaction.</p></li><li><p><code>documentation</code>: an object mapping names to descriptions. Note that there is only one namepspace, so field names can only have one description. This is optional, but useful for the HTML serializer, which also emits this information as micro-data.</p><pre><code class="lang-js">{
+  <span class="hljs-attribute">documentation</span>: {
+    <span class="hljs-attribute">recordType</span>: <span class="hljs-string">'Description of a type.'</span>,
+    <span class="hljs-attribute">fieldName</span>: <span class="hljs-string">'Description of a field.'</span>,
+    <span class="hljs-attribute">anotherFieldName</span>: {
+      <span class="hljs-attribute">en</span>: <span class="hljs-string">'Two letter language code indicates localized description.'</span>
+    }
+  }
+}
+</code></pre></li><li><p><code>settings</code>: internal settings to configure.</p><pre><code class="lang-js">{
+  settings: {
+    // Whether <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> to enforce referential integrity. Default: `<span class="hljs-literal">true</span>`
+    // <span class="hljs-keyword">for</span> server, `<span class="hljs-literal">false</span>` <span class="hljs-keyword">for</span> browser.
+    enforceLinks: <span class="hljs-literal">true</span>,
 
-  // Name <span class="hljs-keyword">of</span> the application used <span class="hljs-keyword">for</span> display purposes.
-  name: <span class="hljs-symbol">'My</span> Awesome Application',
+    // Name <span class="hljs-keyword">of</span> the application used <span class="hljs-keyword">for</span> display purposes.
+    name: <span class="hljs-symbol">'My</span> Awesome Application',
 
-  // Description <span class="hljs-keyword">of</span> the application used <span class="hljs-keyword">for</span> display purposes.
-  description: <span class="hljs-symbol">'media</span> <span class="hljs-keyword">type</span> <span class="hljs-type">"application/vnd.micro+json"'
-</span>}
+    // Description <span class="hljs-keyword">of</span> the application used <span class="hljs-keyword">for</span> display purposes.
+    description: <span class="hljs-symbol">'media</span> <span class="hljs-keyword">type</span> <span class="hljs-type">"application/vnd.micro+json"'
+  </span>}
+}
 </code></pre></li></ul><p>The return value of the constructor is the instance itself.</p><h2 id="fortune-request">Fortune.<span class="key">request</span> <!--
         --><!--
           -->(<span class="parameter" title="Object">options</span>)<!--

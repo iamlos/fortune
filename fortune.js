@@ -2,7 +2,7 @@
  * Fortune.js
  * Version 4.1.1
  * MIT License
- * http://fortunejs.com
+ * http://fortune.js.org
  */
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 (function (Buffer){
@@ -2063,24 +2063,26 @@ Fortune.prototype = Object.create(EventLite.prototype)
  * objects. Here are some example field definitions:
  *
  * ```js
- * [recordType]: {
- *   // A singular value.
- *   name: { type: String },
+ * {
+ *   recordType: {
+ *     // A singular value.
+ *     name: { type: String },
  *
- *   // An array containing values of a single type.
- *   luckyNumbers: { type: Number, isArray: true },
+ *     // An array containing values of a single type.
+ *     luckyNumbers: { type: Number, isArray: true },
  *
- *   // Creates a to-many link to `animal` record type. If the field `owner`
- *   // on the `animal` record type is not an array, this is a many-to-one
- *   // relationship, otherwise it is many-to-many.
- *   pets: { link: 'animal', isArray: true, inverse: 'owner' },
+ *     // Creates a to-many link to `animal` record type. If the field `owner`
+ *     // on the `animal` record type is not an array, this is a many-to-one
+ *     // relationship, otherwise it is many-to-many.
+ *     pets: { link: 'animal', isArray: true, inverse: 'owner' },
  *
- *   // The `min` and `max` keys are open to interpretation by the specific
- *   // adapter, which may introspect the field definition.
- *   thing: { type: Number, min: 0, max: 100 },
+ *     // The `min` and `max` keys are open to interpretation by the specific
+ *     // adapter, which may introspect the field definition.
+ *     thing: { type: Number, min: 0, max: 100 },
  *
- *   // Nested field definitions are invalid. Use `Object` type instead.
- *   nested: { thing: { ... } } // Will throw an error.
+ *     // Nested field definitions are invalid. Use `Object` type instead.
+ *     nested: { thing: { ... } } // Will throw an error.
+ *   }
  * }
  * ```
  *
@@ -2107,14 +2109,16 @@ Fortune.prototype = Object.create(EventLite.prototype)
  *   considered omitted.
  *
  *   ```js
- *   adapter: [
- *     // Must be a class that extends `Fortune.Adapter`, or a function
- *     // that accepts the Adapter class and returns a subclass. Required.
- *     Adapter => { ... },
+ *   {
+ *     adapter: [
+ *       // Must be a class that extends `Fortune.Adapter`, or a function
+ *       // that accepts the Adapter class and returns a subclass. Required.
+ *       Adapter => { ... },
  *
- *     // An options object that is specific to the adapter. Optional.
- *     { ... }
- *   ]
+ *       // An options object that is specific to the adapter. Optional.
+ *       { ... }
+ *     ]
+ *   }
  *   ```
  *
  * - `transforms`: keyed by type name, valued by an array containing an `input`
@@ -2142,25 +2146,27 @@ Fortune.prototype = Object.create(EventLite.prototype)
  *   and displaying the timestamp in the server's locale:
  *
  *   ```js
- *   [recordType]: [
- *     (context, record, update) => {
- *       const method = context.request.method
+ *   {
+ *     recordType: [
+ *       (context, record, update) => {
+ *         const method = context.request.method
  *
- *       if (method === 'create') {
- *         record.timestamp = new Date()
+ *         if (method === 'create') {
+ *           record.timestamp = new Date()
+ *           return record
+ *         }
+ *
+ *         if (update) return update
+ *
+ *         // If we get here, return value of the delete method doesn't matter.
+ *         return null
+ *       },
+ *       (context, record) => {
+ *         record.timestamp = record.timestamp.toLocaleString()
  *         return record
  *       }
- *
- *       if (update) return update
- *
- *       // If we get here, return value of the delete method doesn't matter.
- *       return null
- *     },
- *     (context, record) => {
- *       record.timestamp = record.timestamp.toLocaleString()
- *       return record
- *     }
- *   ]
+ *     ]
+ *   }
  *   ```
  *
  *   Requests to update a record will **NOT** have the updates already applied
@@ -2177,11 +2183,13 @@ Fortune.prototype = Object.create(EventLite.prototype)
  *   this information as micro-data.
  *
  *   ```js
- *   documentation: {
- *     [recordType]: 'Description of a type.',
- *     [fieldName]: 'Description of a field.',
- *     [fieldName]: {
- *       en: 'Two letter language code indicates localized description.'
+ *   {
+ *     documentation: {
+ *       recordType: 'Description of a type.',
+ *       fieldName: 'Description of a field.',
+ *       anotherFieldName: {
+ *         en: 'Two letter language code indicates localized description.'
+ *       }
  *     }
  *   }
  *   ```
@@ -2189,16 +2197,18 @@ Fortune.prototype = Object.create(EventLite.prototype)
  * - `settings`: internal settings to configure.
  *
  *   ```js
- *   settings: {
- *     // Whether or not to enforce referential integrity. Default: `true` for
- *     // server, `false` for browser.
- *     enforceLinks: true,
+ *   {
+ *     settings: {
+ *       // Whether or not to enforce referential integrity. Default: `true`
+ *       // for server, `false` for browser.
+ *       enforceLinks: true,
  *
- *     // Name of the application used for display purposes.
- *     name: 'My Awesome Application',
+ *       // Name of the application used for display purposes.
+ *       name: 'My Awesome Application',
  *
- *     // Description of the application used for display purposes.
- *     description: 'media type "application/vnd.micro+json"'
+ *       // Description of the application used for display purposes.
+ *       description: 'media type "application/vnd.micro+json"'
+ *     }
  *   }
  *   ```
  *
