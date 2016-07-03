@@ -34,7 +34,7 @@ const store = fortune({
   record.accessedAt = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>()
   <span class="hljs-keyword">return</span> record
 }
-</code></pre><p>Based on whether or not the resolved record is different from what was passed in, serializers may decide not show the resolved record of the output transform for update and delete requests.</p><p><strong>Note</strong>: Tranform functions must be defined in a specific order: input first, output last.</p><pre><code class="lang-js">const store = fortune({
+</code></pre><p>Based on whether or not the resolved record is different from what was passed in, serializers may decide not to show the resolved record of the output transform for update and delete requests.</p><p><strong>Note</strong>: Tranform functions must be defined in a specific order: input first, output last.</p><pre><code class="lang-js">const store = fortune({
   user: { ... }
 }, {
   transforms: {
