@@ -22,8 +22,9 @@ h1, h2, h3, h4, h5, h6 { font-size: 1.25em; line-height: 1.2; font-weight: norma
 .types-list li { display: inline-block; text-transform: capitalize; }
 .types-list li:after { content: '/'; color: #888; margin: 0 0.5em; }
 .types-list li:last-of-type:after { display: none; }
-.types-list li a { color: #31BAE8; }
+.types-list li a { color: #31BAE8; font-weight: bold; }
 .types-list li a:hover { text-decoration: underline; }
+.types-list .comment { display: none; }
 
 /* definitions */
 .definition { border-top: 1px #ddd solid; padding: 1.125em 0.75em; min-width: 60em; }
